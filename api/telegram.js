@@ -46,6 +46,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Server crashed", details: String(e) });
   }
 }
-    return res.status(500).json({ error: "crash", details: String(e) });
-  }
-};
