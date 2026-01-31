@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
 📍 Ville : ${city || "-"}
 💳 Paiement : ${payment || "-"}`;
 
-    const url = https://api.telegram.org/bot${BOT_TOKEN}/sendMessage;
+   const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage;
 
     const r = await fetch(url, {
       method: "POST",
