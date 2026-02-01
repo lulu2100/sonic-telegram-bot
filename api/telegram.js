@@ -63,11 +63,12 @@ export default async function handler(req, res) {
         "➡️ Ouvre la mini-app pour voir les produits et commander.\n" +
         "📣 Infos + liens juste en dessous.";
 
-      await tg("sendMessage", {
-        chat_id: chatId,
-        text,
-        reply_markup: buildMenuKeyboard(),
-      });
+     await tg("sendVideo", {
+  chat_id: chatId,
+  video: process.env.WELCOME_VIDEO_URL,
+  caption: text,
+  reply_markup: buildMenuKeyboard(),
+});
     };
 
     // ---------- 1) Cas Telegram webhook (update) ----------
