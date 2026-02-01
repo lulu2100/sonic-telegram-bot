@@ -1,48 +1,138 @@
+// /api/telegram.js
 export default async function handler(req, res) {
   try {
-    // 1) On refuse GET (Safari) => doit renvoyer 405
+    // Telegram envoie en POST
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    // 2) Variables Vercel
     const BOT_TOKEN = process.env.BOT_TOKEN;
-    const CHAT_ID = process.env.CHAT_ID;
+    const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID; // ton chat_id (ex: 5002592045)
+    const MINIAPP_URL = process.env.MINIAPP_URL;     // https://sonic-mini-app.vercel.app
+    const CHANNEL_URL = process.env.CHANNEL_URL;     // https://t.me/sonic_officiel_coffee
+    const SNAP_URL = process.env.SNAP_URL;           // https://snapchat.com/t/9Q5706HB
+    const CONTACT_URL = process.env.CONTACT_URL;     // https://t.me/SonicShop_Officiel (sans @)
+    const RETOURS_URL = process.env.RETOURS_URL || ""; // tu mettras plus tard
 
-    if (!BOT_TOKEN || !CHAT_ID) {
+    if (!BOT_TOKEN || !ADMIN_CHAT_ID || !MINIAPP_URL || !CHANNEL_URL || !SNAP_URL || !CONTACT_URL) {
       return res.status(500).json({
-        error: "Missing BOT_TOKEN or CHAT_ID in Vercel env",
+        error: "Missing env vars in Vercel",
+        required: ["BOT_TOKEN","ADMIN_CHAT_ID","MINIAPP_URL","CHANNEL_URL","SNAP_URL","CONTACT_URL"],
       });
     }
 
-    // 3) Données envoyées depuis ton site (POST JSON)
-    const { product, price, delivery, city, payment } = req.body || {};
+    const body = req.body || {};
 
-    const message =
-      `🛒 NOUVELLE COMMANDE\n\n` +
-      `📦 Produit : ${product || "-"}\n` +
-      `💰 Prix : ${price || "-"} €\n` +
-      `🚚 Livraison : ${delivery || "-"}\n` +
-      `📍 Ville : ${city || "-"}\n` +
-      `💳 Paiement : ${payment || "-"}\n`;
+    // ---------- Helpers ----------
+    const tg = async (method, payload) => {
+      const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(`${method} failed: ${JSON.stringify(data)}`);
+      return data;
+    };
 
-    // ✅ IMPORTANT: backticks + URL correcte
-    const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+    const buildMenuKeyboard = () => {
+      const rows = [
+        [
+          { text: "Informations ℹ️", url: CHANNEL_URL },
+          { text: "Contact 💬", url: CONTACT_URL },
+        ],
+        [
+          { text: "Sonic mini-app 📱", web_app: { url: MINIAPP_URL } },
+        ],
+        [
+          { text: "Canal 📣", url: CHANNEL_URL },
+          { text: "Snapchat 👻", url: SNAP_URL },
+        ],
+      ];
 
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: CHAT_ID, text: message }),
-    });
+      if (RETOURS_URL) {
+        rows.push([{ text: "Vos Retours 📦", url: RETOURS_URL }]);
+      }
 
-    const data = await r.json();
+      return { inline_keyboard: rows };
+    };
 
-    if (!r.ok) {
-      return res.status(500).json({ error: "Telegram API error", data });
+    const sendStartMenu = async (chatId) => {
+      const text =
+        "👋 Bienvenue chez Sonic Coffee.\n\n" +
+        "➡️ Ouvre la mini-app pour voir les produits et commander.\n" +
+        "📣 Infos + liens juste en dessous.";
+
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text,
+        reply_markup: buildMenuKeyboard(),
+      });
+    };
+
+    // ---------- 1) Cas Telegram webhook (update) ----------
+    if (body.message || body.callback_query) {
+      const msg = body.message || body.callback_query?.message;
+      const chatId = msg?.chat?.id;
+
+      // si pas de chatId, on répond ok pour pas casser le webhook
+      if (!chatId) return res.status(200).json({ ok: true });
+
+      const text = body.message?.text || "";
+
+      // /start ou /menu => on renvoie le menu
+      if (text.startsWith("/start") || text.startsWith("/menu")) {
+        await sendStartMenu(chatId);
+      }
+
+      // IMPORTANT: toujours répondre 200 sinon Telegram re-tente => spam + logs rouges
+      return res.status(200).json({ ok: true });
     }
 
-    return res.status(200).json({ ok: true, data });
+    // ---------- 2) Cas mini-app (commande) ----------
+    // Ta mini-app doit POST ici un JSON genre:
+    // { product, price, qty, delivery, city, address, payment, customer_name, customer_phone }
+    const {
+      product,
+      price,
+      qty,
+      delivery,
+      city,
+      address,
+      payment,
+      customer_name,
+      customer_phone,
+      note,
+    } = body;
+
+    // Si c'est pas une commande valide, on ignore proprement
+    if (!product && !price && !delivery && !payment) {
+      return res.status(200).json({ ok: true, ignored: true });
+    }
+
+    const orderText =
+      `🛒 NOUVELLE COMMANDE\n\n` +
+      `📦 Produit : ${product ?? "-"}\n` +
+      `💰 Prix : ${price ?? "-"}\n` +
+      `🔢 Quantité : ${qty ?? "-"}\n` +
+      `🚚 Livraison : ${delivery ?? "-"}\n` +
+      `🏙️ Ville : ${city ?? "-"}\n` +
+      `📍 Adresse : ${address ?? "-"}\n` +
+      `💳 Paiement : ${payment ?? "-"}\n` +
+      `👤 Nom : ${customer_name ?? "-"}\n` +
+      `📞 Téléphone : ${customer_phone ?? "-"}\n` +
+      `📝 Note : ${note ?? "-"}`;
+
+    await tg("sendMessage", {
+      chat_id: ADMIN_CHAT_ID,
+      text: orderText,
+    });
+
+    return res.status(200).json({ ok: true });
   } catch (e) {
-    return res.status(500).json({ error: "Server crashed", details: String(e) });
+    // Répondre 200 à Telegram évite les retries infinis,
+    // mais tu veux voir l'erreur dans Vercel:
+    console.error("ERROR /api/telegram:", e);
+    return res.status(500).json({ error: "Server crashed", details: String(e?.message || e) });
   }
 }
