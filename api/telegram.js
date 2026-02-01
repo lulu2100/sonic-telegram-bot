@@ -106,35 +106,35 @@ if (req.method === "OPTIONS") {
     // Ta mini-app doit POST ici un JSON genre:
     // { product, price, qty, delivery, city, address, payment, customer_name, customer_phone }
     const {
-      product,
-      price,
-      qty,
-      delivery,
-      city,
-      address,
-      payment,
-      customer_name,
-      customer_phone,
-      note,
-    } = body;
+  products = [],
+  delivery,
+  city,
+  address,
+  payment,
+  customer_name,
+  customer_phone,
+  note,
+} = body;
 
     // Si c'est pas une commande valide, on ignore proprement
-    if (!product && !price && !delivery && !payment) {
-      return res.status(200).json({ ok: true, ignored: true });
-    }
+   if (!products || products.length === 0) {
+  return res.status(200).json({ ok: true, ignored: true });
+}
 
-    const orderText =
-      `🛒 NOUVELLE COMMANDE\n\n` +
-      `📦 Produit : ${product ?? "-"}\n` +
-      `💰 Prix : ${price ?? "-"}\n` +
-      `🔢 Quantité : ${qty ?? "-"}\n` +
-      `🚚 Livraison : ${delivery ?? "-"}\n` +
-      `🏙️ Ville : ${city ?? "-"}\n` +
-      `📍 Adresse : ${address ?? "-"}\n` +
-      `💳 Paiement : ${payment ?? "-"}\n` +
-      `👤 Nom : ${customer_name ?? "-"}\n` +
-      `📞 Téléphone : ${customer_phone ?? "-"}\n` +
-      `📝 Note : ${note ?? "-"}`;
+   const productsText = (products || [])
+  .map(p => `• ${p.product ?? "-"} — ${p.qty ?? "-"} — ${p.price ?? "-"}€`)
+  .join("\n");
+
+const orderText =
+  `🛒 NOUVELLE COMMANDE\n\n` +
+  `📦 Produits :\n${productsText || "-"}\n\n` +
+  `🚚 Livraison : ${delivery ?? "-"}\n` +
+  `🏙️ Ville : ${city ?? "-"}\n` +
+  `📍 Adresse : ${address ?? "-"}\n` +
+  `💳 Paiement : ${payment ?? "-"}\n` +
+  `👤 Nom : ${customer_name ?? "-"}\n` +
+  `📞 Téléphone : ${customer_phone ?? "-"}\n` +
+  `📝 Note : ${note ?? "-"}`;
 
     await tg("sendMessage", {
       chat_id: ADMIN_CHAT_ID,
