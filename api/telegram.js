@@ -1,13 +1,11 @@
 // /api/telegram.js
 export default async function handler(req, res) {
   try {
-    // Telegram envoie en POST
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
-    }
-
     // --- CORS (mini-app -> bot API) ---
-res.setHeader("Access-Control-Allow-Origin", process.env.MINIAPP_URL || "*");
+res.setHeader(
+  "Access-Control-Allow-Origin",
+  "https://sonic-mini-app.vercel.app"
+);
 res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
 res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
@@ -15,6 +13,11 @@ res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 if (req.method === "OPTIONS") {
   return res.status(200).end();
 }
+    // Telegram envoie en POST
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
     const BOT_TOKEN = process.env.BOT_TOKEN;
     const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID; // ton chat_id (ex: 5002592045)
     const MINIAPP_URL = process.env.MINIAPP_URL;     // https://sonic-mini-app.vercel.app
