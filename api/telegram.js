@@ -115,7 +115,17 @@ if (req.method === "OPTIONS") {
   customer_phone,
   note,
 } = body;
+    
+const customerTelegram =
+  body.customer_telegram ||
+  body.customerTelegram ||
+  "-";
 
+const phone =
+  body.phone ||
+  body.customer_phone ||
+  body.customerPhone ||
+  "-";
     // Si c'est pas une commande valide, on ignore proprement
    if (!products || products.length === 0) {
   return res.status(200).json({ ok: true, ignored: true });
@@ -133,6 +143,7 @@ const orderText =
   `📍 Adresse : ${address ?? "-"}\n` +
   `💳 Paiement : ${payment ?? "-"}\n` +
   `👤 Nom : ${customer_name ?? "-"}\n` +
+  `📲 Telegram : ${customerTelegram ?? "-"}\n` +
   `📞 Téléphone : ${customer_phone ?? "-"}\n` +
   `📝 Note : ${note ?? "-"}`;
 
